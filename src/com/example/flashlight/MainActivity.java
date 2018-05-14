@@ -20,6 +20,11 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private Camera cam;
 
     private boolean lightIsOn = false;
+    
+    // Record the touch down position & base brightness
+    private float startX = -1;
+    private float startY = -1;
+    private int startBrightness = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,5 +106,57 @@ public class MainActivity extends Activity implements View.OnClickListener {
             }
             lightIsOn = !lightIsOn;
         }
+    }
+    
+    @Override
+    public boolean onTouchEvent(MotionEvent motionEvent) {
+        float x = motionEvent.getX();
+        float y = motionEvent.getY();
+
+        int action = motionEvent.getAction();
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:
+                startX = x;
+                startY = y;
+                startBrightness = getBrightness();
+                break;
+            case MotionEvent.ACTION_UP:
+                startX = -1;
+                startY = -1;
+                break;
+            case MotionEvent.ACTION_MOVE:
+                // Try to adjust screen brightness only when start position is valid
+                if (startX < 0 || startY < 0) {
+                    return false;
+                }
+                // Stop brightness adjusting when detect the scroll path is not vertical
+                if (Math.abs(y - startY) > 50 && Math.abs(y - startY) < 2 * Math.abs(x - startX)) {
+                    startX = -1;
+                    startY = -1;
+                    return false;
+                }
+                // Scroll up (smaller y) means increase the brightness
+                float delta = startY - y;
+                delta /= 2;
+                adjustBrightness((int) delta);
+                break;
+        }
+
+        return false;
+    }
+
+    // Get current screen brightness
+    private int getBrightness() {
+        WindowManager.LayoutParams lp = getWindow().getAttributes();
+        return (int) (lp.screenBrightness * 255);
+    }
+
+    private void adjustBrightness(int delta) {
+        int brightness = startBrightness + delta;
+        if (brightness < 0) brightness = 0;
+        if (brightness > 255) brightness = 255;
+        WindowManager.LayoutParams lp = getWindow().getAttributes();
+        lp.screenBrightness = brightness * (1f / 255f);
+        getWindow().setAttributes(lp);
     }
 }
